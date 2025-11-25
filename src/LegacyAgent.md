@@ -18,11 +18,21 @@
 ## 3. Fases del flujo
 
 ### 3.1 Generación con IA
-| Artefacto | Workflow | Prompt |
+| Artefacto | Workflow | Template (Prompt) |
 |-----------|----------|--------|
 | Documentación legacy | `call-ai-v-2:1.0.3` | `legacy-agent-documentation-prompt-v-2:1.0.5` |
 | Tips | `call-ai-v-2:1.0.3` | `legacy-agent-tips-prompt-v-2-1:1.0.0` |
 | Use Cases | `call-ai-v-2:1.0.3` | `legacy-use-cases-definition:1.0.1` |
+
+Documentación legacy en la Agencia
+![alt text](image.png)
+![alt text](image-1.png)
+
+Tips en la Agencia
+![alt text](image-2.png)
+
+Uses Cases en la Agencia
+![alt text](image-3.png)
 
 ---
 
@@ -38,10 +48,13 @@
 |--------|----------|
 | Aplicación automática de tips al código fuente | `legacy-autofixcode-2-1:1.0.0` |
 
+Autofix en la Agencia
+![alt text](image-4.png)
+
 ---
 
 ### 3.4 Persistencia
-| Artefacto | Dataset actualizado |
+| Artefacto | Dataset |
 |-----------|---------------------|
 | Documentación funcional | `legacy-functional-documentation-v-2:1.0.0` |
 | Documentación técnica | `legacy-technical-documentation-v-2:1.0.0` |
@@ -53,9 +66,9 @@
 ---
 
 ### 3.5 Limpieza
-| Acción | Workflow |
+| Acción | Nodo |
 |--------|----------|
-| Eliminación de variables residuales | `MapValues clean_up` |
+| Eliminación de variables residuales | `MapValues` |
 
 ---
 

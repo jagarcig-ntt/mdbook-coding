@@ -49,15 +49,37 @@
 ---
 
 ### 3.5 Persistencia
-| Artefacto | Dataset actualizado |
+| Objetivo |
+|----------|
+| Guardar la informacion de cada cliente por dataset y actualizarla en caso de que sea nueva|
+
+---
+| Nodo | Dataset actualizado |
 |-----------|---------------------|
-| Documentación BIAN | `bian-dataset-v-2:1.0.0` |
-| Diagrama BIAN | `bian-diagram-dataset-v-2:1.0.0` |
-| Landscape cliente | `bian-client-diagram-dataset-v-2:1.0.0` |
+| invokeBIANDocumentationUpdater | `bian-dataset-v-2:1.0.0` | 
+| invokeBIANDiagramUpdater | `bian-diagram-dataset-v-2:1.0.0` |
+| update-client-diagram | `bian-client-diagram-dataset-v-2:1.0.0` |
 
 ---
 
-### 3.6 Recuperación de URLs
+### 3.6 Diagrama de Cliente (Mermaid Agregado)
+| Nodo | Dataset actualizado | Uso |
+|-----------|---------------------|-----|
+| Invoke BIANClientDiagram | `aggregate-client-diagram:1.0.2` | Ejecutamos el subworkflow para agregar la informacion de BIAN para la generacion del Landscape Agregado de BIAN por cliente |
+
+---
+
+### 3.6.1 Entradas del proceso - Actualizar cliente
+| Variable | Descripción |
+|----------|-------------|
+| `dataset` | Dataset con los mermaid locales por programa |
+| `clientDataset` | Dataset con los mermaid agregados por cliente |
+| `promptSlug` | Prompt para unificar los mermaid locales |
+| `client` | Identificador del cliente |
+
+---
+
+### 3.7 Recuperación de URLs
 | Tipo | Dataset |
 |------|---------|
 | API del Service Domain | `api-bian-12-v-2:latest` |
@@ -66,7 +88,7 @@
 
 ---
 
-### 3.7 Limpieza
+### 3.8 Limpieza
 | Acción | Workflow |
 |--------|----------|
 | Eliminación de variables internas | `MapValues clean_workflow` |
