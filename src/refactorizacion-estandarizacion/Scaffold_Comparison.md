@@ -1,108 +1,89 @@
-# Comparativa de Estructura de Proyecto (Scaffold): As-Is vs To-Be
+# Reestructuración del Proyecto: Comparativa y Propuesta
 
-Este documento ilustra la evolución de la estructura de carpetas del módulo `server/workflow` para adoptar la Arquitectura Hexagonal. El objetivo es mejorar la mantenibilidad, facilitar la incorporación de nuevos desarrolladores y soportar múltiples flujos de modernización (Discovery, Rebuild, etc.) de forma estandarizada.
+Propuesta de reorganización del módulo `server/workflow` para alinearlo con la Arquitectura Hexagonal. El objetivo principal es desacoplar la lógica de negocio de la infraestructura, facilitando la mantenibilidad y la incorporación de nuevos flujos de modernización.
 
-## 1. Estructura Actual (As-Is)
+## 1. Situación Actual (As-Is)
 
-La estructura actual mezcla responsabilidades. Los "Agentes" son a la vez lógica de negocio y clientes HTTP. Los procesos de modernización están agrupados por cliente (MABA, TIBCO) en lugar de por tipo de flujo.
+Actualmente, la estructura mezcla responsabilidades. Las clases de "Agentes" contienen tanto lógica de negocio como implementación de clientes HTTP. Además, la agrupación por cliente (MABA, TIBCO) dificulta la reutilización de lógica común.
 
 ```text
 server/workflow/src/
 ├── application/
-│   ├── MABA/                          <-- Mezcla orquestación y definiciones de agentes
-│   │   ├── agents/                    <-- Implementaciones acopladas a Coding (extienden BaseCodingTool)
+│   ├── MABA/                          <-- Mezcla orquestación y definición de agentes
+│   │   ├── agents/                    <-- Implementaciones acopladas a Coding (herencia de BaseCodingTool)
 │   │   │   ├── LegacyAgent.ts
 │   │   │   ├── BIANAgent.ts
-│   │   │   ├── ARQAgent.ts
 │   │   │   └── ...
-│   │   ├── modernizationLeadDiscoveryProcess.ts  <-- Orquestador Discovery
-│   │   ├── modernizationLeadRebuildProcess.ts    <-- Orquestador Rebuild
-│   │   └── agentRunner.ts             <-- Helper de ejecución específico
-│   └── TIBCO/                         <-- Otro cliente con estructura similar
+│   │   ├── modernizationLeadDiscoveryProcess.ts
+│   │   └── ...
+│   └── TIBCO/
 ├── infrastructure/
-│   ├── CodingConnectorTool.ts         <-- Cliente HTTP específico de Coding
-│   ├── StreamService.ts               <-- Gestión de SSE
+│   ├── CodingConnectorTool.ts         <-- Cliente HTTP específico
 │   └── ...
 ├── tools/
-│   ├── BaseCodingTool.ts              <-- Clase base que acopla todo a Coding
+│   ├── BaseCodingTool.ts              <-- Clase base que genera el acoplamiento
 │   └── ...
-├── types/
-│   └── agents.ts                      <-- Tipos mezclados (Coding + Negocio)
 └── ...
 ```
 
-### Puntos de Dolor
-*   **Difícil de navegar:** ¿Dónde está la lógica de negocio de Legacy? En `agents/LegacyAgent.ts`, pero está llena de código de infraestructura.
-*   **Difícil de escalar:** Añadir un nuevo flujo (ej. "Rework") implica copiar y pegar mucha lógica de orquestación.
-*   **Acoplamiento:** `application/MABA/agents` depende directamente de `tools/BaseCodingTool`.
+### Problemas Detectados
+*   **Navegación compleja:** La lógica de negocio está dispersa y mezclada con código de infraestructura.
+*   **Escalabilidad limitada:** Añadir nuevos flujos (ej. "Rework") requiere duplicar lógica de orquestación.
+*   **Alto Acoplamiento:** Dependencia directa entre `application` y `tools/BaseCodingTool`.
 
 ---
 
-## 2. Estructura Propuesta (To-Be)
+## 2. Nueva Organización (To-Be)
 
-La nueva estructura separa claramente **Dominio** (Qué hacemos), **Infraestructura** (Con qué herramientas externas) y **Aplicación** (Cómo coordinamos los flujos).
+La propuesta separa claramente **Dominio** (Reglas de negocio), **Infraestructura** (Adaptadores externos) y **Aplicación** (Orquestación).
 
 ```text
 server/workflow/src/
-├── domain/                            <-- EL NÚCLEO (Puro TypeScript, sin dependencias externas)
-│   ├── ports/                         <-- Contratos (Interfaces)
-│   │   ├── IAgentConnector.ts         <-- Contrato para cualquier IA (Coding, Azure, etc.)
-│   │   └── IStreamService.ts          <-- Contrato para streams de eventos
-│   ├── types/                         <-- Lenguaje Ubicuo (Nuevo Enfoque)
-│   │   ├── StandardRequest.ts         <-- { TYPE_AGENT, LEGACY_SOURCE, ... }
-│   │   └── StandardResponse.ts        <-- { DOC_FUNCTIONAL, DIAGRAMS_TEXT, ... }
-│   └── services/                      <-- Lógica de Negocio Pura (Servicios de Dominio)
-│       ├── LegacyAnalysisService.ts   <-- "Sabe" qué pedir, no a quién
+├── domain/                            <-- NÚCLEO (TypeScript puro, sin dependencias)
+│   ├── ports/                         <-- Interfaces / Contratos
+│   │   ├── IAgentConnector.ts         <-- Contrato agnóstico para IAs
+│   │   └── IStreamService.ts
+│   ├── types/                         <-- Definiciones del Dominio (Lenguaje Ubicuo)
+│   │   ├── StandardRequest.ts
+│   │   └── StandardResponse.ts
+│   └── services/                      <-- Lógica de Negocio
+│       ├── LegacyAnalysisService.ts
 │       ├── BianArchitectureService.ts
-│       └── EngineeringService.ts
+│       └── ...
 │
-├── infrastructure/                    <-- LOS ADAPTADORES (Implementación Técnica)
+├── infrastructure/                    <-- ADAPTADORES
 │   ├── adapters/
-│   │   ├── coding/                    <-- Implementación específica para "Coding"
-│   │   │   ├── CodingAgentAdapter.ts  <-- Traduce StandardRequest -> Coding JSON
-│   │   │   └── CodingStreamAdapter.ts
-│   │   └── azure/                     <-- (Futuro) Implementación para Azure AI
-│   │       └── AzureOpenAIAdapter.ts
-│   └── config/                        <-- Inyección de dependencias
-│       └── ContainerConfig.ts         <-- Decide qué adaptador usar (Coding vs Azure)
+│   │   ├── coding/                    <-- Implementación para "Coding"
+│   │   │   ├── CodingAgentAdapter.ts
+│   │   │   └── ...
+│   │   └── azure/                     <-- Futura implementación Azure
+│   └── config/
+│       └── ContainerConfig.ts         <-- Inyección de dependencias
 │
-├── application/                       <-- LA ORQUESTACIÓN (Casos de Uso / Flujos)
-│   ├── workflows/                     <-- Los diferentes caminos de modernización
+├── application/                       <-- ORQUESTACIÓN
+│   ├── workflows/                     <-- Flujos de modernización
 │   │   ├── discovery/
-│   │   │   └── DiscoveryWorkflow.ts   <-- (Antes modernizationLeadDiscoveryProcess)
+│   │   │   └── DiscoveryWorkflow.ts
 │   │   ├── rebuild/
-│   │   │   └── RebuildWorkflow.ts     <-- (Antes modernizationLeadRebuildProcess)
-│   │   └── rework/
-│   │       └── ReworkWorkflow.ts
-│   └── dtos/                          <-- Objetos de transferencia para la API REST
+│   │   │   └── RebuildWorkflow.ts
+│   │   └── ...
+│   └── dtos/
 │
-└── shared/                            <-- Utilidades transversales
-    └── utils/
+└── shared/
 ```
 
-### Ventajas para el Equipo
-1.  **Estandarización:** Un desarrollador nuevo sabe que si quiere ver *cómo* se analiza el código Legacy, va a `domain/services/LegacyAnalysisService`. Si quiere ver *cómo* se conecta con la API, va a `infrastructure/adapters`.
-2.  **Soporte a Múltiples Procesos:** Los `workflows` (Discovery, Rebuild) son orquestadores que simplemente llaman a los servicios de dominio (`LegacyAnalysisService`, `BianArchitectureService`) en diferente orden. Reutilizan la lógica sin duplicarla.
-3.  **Flexibilidad de Agentes:**
-    *   El `DiscoveryWorkflow` llama a `LegacyAnalysisService`.
-    *   El `LegacyAnalysisService` usa `IAgentConnector`.
-    *   En tiempo de ejecución, inyectamos `CodingAgentAdapter`.
-    *   Si mañana queremos probar GPT-4 para Legacy, inyectamos `AzureOpenAIAdapter` y el workflow no cambia ni una línea.
+### Mejoras Clave
+1.  **Claridad:** Separación estricta entre el *qué* (Dominio) y el *cómo* (Infraestructura).
+2.  **Reutilización:** Los `workflows` orquestan servicios de dominio reutilizables, evitando duplicidad.
+3.  **Flexibilidad:** Permite inyectar diferentes adaptadores (Coding, Azure) sin modificar la lógica de negocio.
 
-## 3. Ejemplo de Flujo en la Nueva Estructura
+## 3. Flujo de Ejecución (Ejemplo Discovery)
 
-**Escenario:** Ejecutar proceso de Discovery.
+1.  **Entrada:** `DiscoveryWorkflow` recibe la petición.
+2.  **Ejecución:** Llama a `LegacyAnalysisService.analyze(sourceCode)`.
+3.  **Dominio:** El servicio genera un `StandardRequest` y llama al puerto `IAgentConnector`.
+4.  **Infraestructura:** `CodingAgentAdapter` intercepta la llamada, traduce al formato de Coding, ejecuta la petición HTTP y espera el Stream.
+5.  **Retorno:** Se devuelve un `StandardResponse` normalizado al workflow.
+6.  **Siguiente Paso:** El workflow usa la respuesta para invocar a `BianArchitectureService`.
 
-1.  **Entrada:** `application/workflows/discovery/DiscoveryWorkflow.ts` recibe la petición.
-2.  **Paso 1 (Legacy):** El workflow llama a `domain/services/LegacyAnalysisService.analyze(sourceCode)`.
-3.  **Dominio:** El servicio crea un `StandardRequest` con `TYPE_AGENT='legacy'` y `LEGACY_SOURCE=sourceCode`.
-4.  **Puerto:** El servicio llama a `IAgentConnector.execute(request)`.
-5.  **Infraestructura:** `CodingAgentAdapter` intercepta la llamada:
-    *   Traduce `LEGACY_SOURCE` a `input` (formato Coding).
-    *   Hace POST a la API de Coding.
-    *   Espera el Stream.
-    *   Traduce `functionalDetail` a `DOC_FUNCTIONAL`.
-6.  **Retorno:** El servicio recibe un `StandardResponse` limpio y se lo devuelve al workflow.
-7.  **Paso 2 (BIAN):** El workflow toma `DOC_FUNCTIONAL` del paso anterior y llama a `domain/services/BianArchitectureService.design(...)`.
-
-Este ciclo se repite, manteniendo cada capa limpia y enfocada en su responsabilidad.
+Esta estructura garantiza que cada capa tenga una responsabilidad única y aislada.
