@@ -22,27 +22,7 @@ Actualmente, la lógica de negocio (Agentes) y la infraestructura de comunicaci�
 
 ### Diagrama As-Is
 
-```mermaid
-graph TD
-    subgraph "Capa de Aplicación (Orquestación)"
-        Orchestrator[ModernizationProcess]
-    end
-
-    subgraph "Implementación Acoplada"
-        Orchestrator -->|Instancia| LegacyAgent
-        LegacyAgent -- extiende --> BaseCodingTool
-        BaseCodingTool -- usa --> CodingConnectorTool
-    end
-
-    subgraph "Mundo Exterior"
-        CodingConnectorTool -->|HTTP POST / DAG| CodingSaaS[Plataforma Coding]
-        CodingConnectorTool -->|SSE Stream| CodingSaaS
-    end
-
-    style LegacyAgent fill:#ffcccc,stroke:#333,stroke-width:2px
-    style BaseCodingTool fill:#ffcccc,stroke:#333,stroke-width:2px
-    style CodingConnectorTool fill:#ffcccc,stroke:#333,stroke-width:2px
-```
+![alt text](image.png)
 
 ---
 
@@ -57,39 +37,11 @@ La nueva arquitectura separa las responsabilidades en capas concéntricas, donde
 
 ### Diagrama To-Be
 
-```mermaid
-graph TD
-    subgraph "Capa de Aplicación"
-        Orchestrator[ModernizationProcess]
-    end
-
-    subgraph "Hexágono (Dominio)"
-        Orchestrator -->|Usa| Service[LegacyAnalyzerService]
-        Service -->|Usa Interfaz| Port[IAgentConnector]
-        
-        Request[StandardAgentRequest] -.-> Port
-        Response[StandardAgentResponse] -.-> Port
-    end
-
-    subgraph "Adaptadores (Infraestructura)"
-        Port -.->|Implementado por| Adapter[CodingAgentAdapter]
-        Port -.->|Implementado por| AzureAdapter[AzureAIAdapter]
-    end
-
-    subgraph "Mundo Exterior"
-        Adapter -->|Traduce y Llama| CodingSaaS[Plataforma Coding]
-        AzureAdapter -->|Traduce y Llama| AzureAI[Azure AI Foundry]
-    end
-
-    style Service fill:#ccffcc,stroke:#333,stroke-width:2px
-    style Port fill:#ccffcc,stroke:#333,stroke-width:2px
-    style Adapter fill:#e6e6ff,stroke:#333,stroke-width:2px
-    style AzureAdapter fill:#e6e6ff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
-```
+![alt text](image-1.png)
 
 ---
 
-## 4. Estrategia de Estandarización (El "Nuevo Enfoque")
+## 4. Estrategia de Estandarización
 
 El Dominio no debe conocer los nombres de parámetros de Coding (`inputFunc`, `technicalDetail`). Se define un **Contrato Único** basado en el análisis funcional.
 
@@ -116,7 +68,7 @@ El `CodingAgentAdapter` será responsable de transformar estos campos:
 
 ---
 
-## 5. Beneficios del Cambio
+## 5. Beneficios
 
 1.  **Desacoplamiento Tecnológico:** Cambiar de proveedor de IA (ej. a Azure AI Foundry) solo requiere crear un nuevo Adaptador. El núcleo de la aplicación no se toca.
 2.  **Testabilidad:** Se pueden crear `MockAdapters` para probar la lógica de negocio sin realizar llamadas reales a APIs costosas o lentas.
@@ -127,10 +79,10 @@ El `CodingAgentAdapter` será responsable de transformar estos campos:
 
 Para garantizar que el Frontend actual continúe funcionando sin cambios mientras se moderniza el Backend, se implementará una capa de **Traducción Inversa** en el punto de persistencia.
 
-### El Problema
+### Problema
 El Frontend y la Base de Datos esperan la estructura JSON antigua (ej. `functionalDetail`), pero el nuevo Dominio genera una estructura estandarizada (ej. `DOC_FUNCTIONAL`). Si guardamos la estructura nueva directamente, el Frontend fallará al no encontrar las propiedades esperadas.
 
-### La Solución: Anti-Corruption Layer (ACL) en Salida
+### Solución: Anti-Corruption Layer (ACL) en Salida
 El archivo `persistenceManager.ts` actuará como una ACL de salida. Antes de guardar cualquier resultado en disco o base de datos, convertirá el objeto `StandardAgentResponse` al formato Legacy.
 
 **Flujo de Datos Seguro:**
@@ -169,7 +121,7 @@ function mapToLegacyFormat(standard: StandardAgentResponse): LegacyOutput {
 
 ## 8. Decisiones Estratégicas: Stack y Migración
 
-### 8.1 Stack Tecnológico: TypeScript (Confirmado)
+### 8.1 Stack Tecnológico: TypeScript
 Se decide mantener **TypeScript/Node.js** como la tecnología base para el backend.
 
 *   **Justificación:**
@@ -178,8 +130,8 @@ Se decide mantener **TypeScript/Node.js** como la tecnología base para el backe
     *   **Tipado Estructural:** Las interfaces de TS son ideales para definir los Puertos Hexagonales sin la rigidez de Java/C#.
     *   **Unificación:** Mantiene la coherencia con el Frontend (React) y evita silos de conocimiento en el equipo.
 
-### 8.2 Estrategia de Ejecución: Refactorización Progresiva (Strangler Fig)
-Se descarta la reescritura total ("Greenfield") en favor de una refactorización incremental utilizando el patrón **Strangler Fig**.
+### 8.2 Estrategia de Ejecución: Refactorización Progresiva
+Se descarta la reescritura total en favor de una refactorización incremental utilizando el patrón **Strangler Fig**.
 
 *   **Justificación:**
     *   **Preservación de Valor:** Se mantiene la lógica de infraestructura probada ("fontanería": colas, rutas, manejo de errores) que ya funciona en producción.
@@ -195,7 +147,7 @@ Se descarta la reescritura total ("Greenfield") en favor de una refactorización
 
 ---
 
-## 9. Aspectos Transversales (Cross-Cutting Concerns)
+## 9. Aspectos Transversales
 
 Para asegurar la robustez operativa de la nueva arquitectura, se definen los siguientes lineamientos técnicos:
 
